@@ -1,12 +1,11 @@
+import os
+import re
 import bs4
 import requests
 import wget
-import os
-import re
 
 
 def main():
-
     # web address to download files
     def_url = 'http://www.m-afshar.net/ganjineye%20adabi.htm'
     # get urls and farsi names  list form links
@@ -29,8 +28,8 @@ def get_file_link(url):
     res_bs4 = bs4.BeautifulSoup(res.content, 'html.parser')
     links = res_bs4.find_all('a', href=True)
     for li in links:
-        # find custome extions ( '.doc', '.docx', '.pdf') in links
         finl_res = str(li.get('href'))
+        # find custome extions ( '.doc', '.docx', '.pdf') in links
         if finl_res.endswith(('.doc', '.docx', '.pdf')):
             t = str(li.text)
             sentence = " ".join(re.split("\s+", t, flags=re.UNICODE))
@@ -42,14 +41,12 @@ def get_file_link(url):
 def downlodfile(url, farsiname):
     # for fix borken link
     fixlink = 'http://www.m-afshar.net/'
-
     # set place to store file in pc
     out_folder_1 = 'e:/t/books/'
-    out_folder_2 = 'e:/t/books/error'
     try:
         my_url = str(url)
         name = os.path.basename(my_url)
-        # set ext for evey file
+        # set  path and ext for evey file
         if name.endswith('.pdf'):
             fixname = out_folder_1 + name.replace(name, farsiname + ".pdf")
         elif name.endswith('.docx'):
@@ -64,7 +61,6 @@ def downlodfile(url, farsiname):
         wget.download(my_url, fixname)
     except:
         print('downlod error {} file!!!'.format(my_url))
-
 
 
 if __name__ == '__main__':
