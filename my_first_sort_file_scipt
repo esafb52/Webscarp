@@ -1,0 +1,63 @@
+import os
+
+my_path = 'L:\\desktop and backup win 8.1 virus 960508'
+out_folder = 'L:\\desktop and backup win 8.1 virus 960508\\all_sort_file'
+out_folder2 = 'L:\\desktop and backup win 8.1 virus 960508\\all_unkonw_ext'
+
+all_ext = '.DOC', '.DOCX', '.LOG', '.MSG', '.ODT', '.PAGES', '.RTF', '.TEX', '.TXT', '.WPD', '.WPS', \
+          '.CSV', '.DAT', '.GED', '.KEY', '.KEYCHAIN', '.PPS', '.PPT', '.PPTX', '.SDF', '.TAR', \
+          '.TAX2016', '.TAX2017', '.VCF', '.XML', '.AIF', '.IFF', '.M3U', '.M4A', '.MID', '.MP3', \
+          '.MPA', '.WAV', '.WMA', '.3G2', '.3GP', '.ASF', '.AVI', '.FLV', '.M4V', '.MOV', '.MP4', \
+          '.MPG', '.RM', '.SRT', '.SWF', '.VOB', '.WMV', '.3DM', '.3DS', '.MAX', '.OBJ', '.BMP', \
+          '.DDS', '.GIF', '.JPG', '.PNG', '.PSD', '.PSPIMAGE', '.TGA', '.THM', '.TIF', '.TIFF', \
+          '.YUV', '.AI', '.EPS', '.PS', '.SVG', '.INDD', '.PCT', '.PDF', '.XLR', '.XLS', '.XLSX', \
+          '.ACCDB', '.DB', '.DBF', '.MDB', '.PDB', '.SQL', '.APK', '.APP', '.BAT', '.CGI', '.COM', \
+          '.EXE', '.GADGET', '.JAR', '.WSF', '.B', '.DEM', '.GAM', '.NES', '.ROM', '.SAV', '.DWG', \
+          '.DXF', '.GPX', '.KML', '.KMZ', '.ASP', '.ASPX', '.CER', '.CFM', '.CSR', '.CSS', '.HTM', \
+          '.HTML', '.JS', '.JSP', '.PHP', '.RSS', '.XHTML', '.CRX', '.PLUGIN', '.FNT', '.FON', '.OTF', \
+          '.TTF', '.CAB', '.CPL', '.CUR', '.DESKTHEMEPACK', '.DLL', '.DMP', '.DRV', '.ICNS', '.ICO', \
+          '.LNK', '.SYS', '.CFG', '.INI', '.PRF', '.HQX', '.MIM', '.UUE', '.7Z', '.CBR', '.DEB', '.GZ', \
+          '.PKG', '.RAR', '.RPM', '.SITX', '.gz">.TAR.GZ', '.ZIP', '.ZIPX', '.BIN', '.CUE', '.DMG', \
+          '.ISO', '.MDF', '.TOAST', '.VCD', '.C', '.CLASS', '.CPP', '.CS', '.DTD', '.FLA', '.H', '.JAVA', \
+          '.LUA', '.M', '.PL', '.PY', '.SH', '.SLN', '.SWIFT', '.VB', '.VCXPROJ', '.XCODEPROJ', '.BAK', \
+          '.TMP', '.CRDOWNLOAD', '.ICS', '.MSI', '.PART', '.TORRENT',
+
+
+def sort_file_to_colections(path):
+    count = 0
+    if not os.path.exists(out_folder):
+        os.mkdir(out_folder)
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            try:
+                name, ext = os.path.splitext(file)
+                full_path = os.path.join(root, file)
+                out_folder_ext = os.path.join(out_folder, ext.replace('.', '').upper())
+                if ext.upper() in all_ext:
+                    if not os.path.exists(out_folder_ext):
+                        os.mkdir(out_folder_ext)
+                    os.chdir(path)
+                    os.system("move " + '"' + full_path + '"' + " " + '"' + out_folder_ext + '"')
+                else:
+                    out_folder_ext = os.path.join(out_folder2, ext.replace('.', ''))
+                    if not os.path.exists(out_folder_ext):
+                        os.mkdir(out_folder_ext)
+                    os.chdir(path)
+                    os.system("move " + '"' + full_path + '"' + " " + '"' + out_folder_ext + '"')
+                count = count + 1
+            except Exception as e:
+                print('eror ouccrd!! becuase {}'.format(e))
+
+    print('*****  file {} move !!!!!! ******'.format(count))
+
+
+def main():
+    if os.path.isdir(my_path):
+        sort_file_to_colections(my_path)
+        print('work complet')
+    else:
+        print('plese set corect folder place !!!')
+
+
+if __name__ == '__main__':
+    main()
