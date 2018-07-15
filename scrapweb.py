@@ -6,6 +6,7 @@ import random
 import string
 
 
+
 def main():
     def_url = 'http://www.m-afshar.net/ganjineye%20adabi.htm'
     downlodfile_counter = 0
