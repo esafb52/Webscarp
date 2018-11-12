@@ -6,13 +6,13 @@ import os
 
 class Automation(object):
     """ this is automation class for download all doc   """
-
+    
     inbox_folder = 'inbox-0'
     sent_folder = 'sentitem-0'
     headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:56.0) Gecko/20100101 Chrome/66'}
-    base_url = ''
+    base_url = 'http://10.187.50.29/'
 
-    def __init__(self, user, my_pass, url):
+    def __init__(self, user, my_pass):
         self.start_time = time.time()
         self.user = user
         self.password = my_pass
@@ -21,18 +21,21 @@ class Automation(object):
         self.out_folder = ''
         self.unit_code = ''
         self.emp_code = ''
-        self.base_url = url
 
     def login(self):
+        login_result = False
         if self.my_session is None:
             self.my_session = requests.session()
         url = '{}/Account/FormLogIn?returnUrl=/'.format(self.base_url)
         post_data = {'userName': self.user, 'password': self.password}
         result = self.my_session.post(url, headers=self.headers, data=post_data)
         if result.status_code == 200:
-            self.emp_code = self.get_emp_code()
-            return True
-        return False
+            result_content = result.json()
+            final_res = dict(result_content['Result'])
+            if False not in final_res.values():
+                self.emp_code = self.get_emp_code()
+                login_result = True
+        return login_result
 
     def get_emp_code(self):
         url = '{}//Automation'.format(self.base_url)
