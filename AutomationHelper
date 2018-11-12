@@ -1,0 +1,220 @@
+import requests
+import time
+import bs4
+import os
+
+
+class Automation(object):
+    """ this is automation class for download all doc   """
+
+    inbox_folder = 'inbox-0'
+    sent_folder = 'sentitem-0'
+    headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:56.0) Gecko/20100101 Chrome/66'}
+    base_url = ''
+
+    def __init__(self, user, my_pass, url):
+        self.start_time = time.time()
+        self.user = user
+        self.password = my_pass
+        self.my_session = None
+        self.lst_letter = []
+        self.out_folder = ''
+        self.unit_code = ''
+        self.emp_code = ''
+        self.base_url = url
+
+    def login(self):
+        if self.my_session is None:
+            self.my_session = requests.session()
+        url = '{}/Account/FormLogIn?returnUrl=/'.format(self.base_url)
+        post_data = {'userName': self.user, 'password': self.password}
+        result = self.my_session.post(url, headers=self.headers, data=post_data)
+        if result.status_code == 200:
+            self.emp_code = self.get_emp_code()
+            return True
+        return False
+
+    def get_emp_code(self):
+        url = '{}//Automation'.format(self.base_url)
+        ss = self.my_session.get(url, headers=self.headers)
+        res = bs4.BeautifulSoup(ss.content, 'html.parser')
+        items = res.find_all('script')
+        ss = str(items[0].text).strip()
+        first_word = ss.find('"CurrentEmp"')
+        second_word = ss.find('","RootRelativeUrl"')
+        final_txt = ss[first_word:second_word]
+        a, empcode = final_txt.split('":"')
+        return empcode
+
+    # get letters jason data for inbox and sent folder
+    def get_letter_data(self, url, page_number, folder):
+        new_data = {'page': page_number, 'pageSize': 500, 'folder': folder}
+        res = self.my_session.post(url, headers=self.headers, data=new_data)
+        data = res.json()
+        return data
+
+    @staticmethod
+    def check_out_folder_exists(path):
+        if not os.path.exists(path):
+            os.mkdir(path)
+
+    def get_letter_code_and_number(self, json_list, unit_number):
+        for item in json_list['Data']:
+            try:
+                if item is not None:
+                    lett_code = str(item['LetterCode'])
+                    letter_number = str(item['LetterNumber'])
+                    attach_state = item['HasAttachment']
+                    if letter_number not in self.lst_letter and letter_number.startswith(unit_number):
+                        letter_info = {'let_code': lett_code, 'let_number': letter_number,
+                                       'HasAttachment': attach_state}
+                        self.lst_letter.append(letter_info)
+            except Exception as e:
+                print('error !!!! ' + e, + ' :: ' + lett_code + ' :: ' + letter_number)
+
+    def get_letter_txt(self, let_code, let_number):
+        letter_params = {'letterCode': let_code, 'enableReferPen': True, 'enableRotate': True, 'pageNumber': 1}
+        letter_url = str('{}/Automation/{}/LetterBody/ViewLetterBody?letterCode={}&pageNumber=1') \
+            .format(self.base_url, self.emp_code, let_number)
+        res = self.my_session.get(letter_url, headers=self.headers, data=letter_params)
+        res2 = bs4.BeautifulSoup(res.content, 'html.parser')
+        result = res2.find_all('p')
+        # for remove footer such as address
+        del result[-1]
+        del result[-1]
+        return result
+
+    def search_letter_by_number(self, let_number):
+        letter_params = {'sort': "", 'page': "1", 'pageSize': "25", 'group': "ReceivedDate-desc", 'filter': "", \
+                         'LetterNumber': let_number, 'CreateDateYearShamsi[0]': "1397",
+                         'CreateDateYearShamsi[1]': "1396", 'folder': ""}
+        letter_url = str('{}/Automation/{}/Instance/LetterSearchRead') \
+            .format(self.base_url, self.emp_code)
+        res = self.my_session.post(letter_url, headers=self.headers, data=letter_params)
+        jason_res = res.json()
+        if len(jason_res['Data']) > 0:
+            print('find')
+            Automation.check_out_folder_exists(self.out_folder)
+            lett_code = str(jason_res['Data'][0]['Items'][0]['LetterCode'])
+            # letter_number = str(jason_res['Data'][0]['Items'][0]['LetterNumber']) get number from input!!!
+            attach_state = jason_res['Data'][0]['Items'][0]['HasAttachment']
+
+            lst_par_content = self.get_letter_txt(lett_code, let_number)
+            final_name = self.save_letter_txt_to_file(let_number, lst_par_content)
+            out_final_path = os.path.join(self.out_folder, final_name)
+
+            # check for has a attach files
+            if attach_state:
+                lst_attache_files = self.get_attache_files(lett_code)
+                self.download_attaches_files(lett_code, lst_attache_files, out_final_path)
+        print('downloaded file complete !!!! \n')
+
+    def save_letter_txt_to_file(self, file_name, lst_par_result):
+        final_name_file = file_name.replace('/', '_')
+        print(final_name_file)
+        out_final_path = os.path.join(self.out_folder, final_name_file)
+        # check folder is created
+        self.check_out_folder_exists(out_final_path)
+        txt_file_name = os.path.join(out_final_path, final_name_file + '.txt')
+        my_doc = open(txt_file_name, 'w', encoding='utf-8')
+        # get txt from p tag in list
+        for p in lst_par_result:
+            my_doc.writelines(str(p.text).strip() + '\n')
+        # save content txt to docx file by its folder
+        my_doc.close()
+        return final_name_file
+
+    def get_attache_files(self, let_code):
+        letter_params = {'page': 1, 'pageSize': 500}
+        url = '{}/Automation/{}/LetterAttachment/LetterAttachmentRead?letterCode={}' \
+            .format(self.base_url, self.emp_code, let_code)
+        attache_data = self.my_session.post(url, data=letter_params, headers=self.headers)
+        download_data = attache_data.json()
+        files_info = download_data['Data']
+        return files_info
+
+    def download_attaches_files(self, let_code, lst_files, out_path):
+        for file in lst_files:
+            try:
+                f_name = out_path + '\\' + (str(file['FileName']))
+                letter_attach_id = (str(file['LetterAttachmentId']))
+                downlod_url = '{}/Automation/{}/LetterAttachment/' \
+                              'DownloadLetterAttachment?letterCode={}&attachmentId={}' \
+                    .format(self.base_url, self.emp_code, let_code, letter_attach_id)
+                # start download item
+                if not os.path.exists(f_name):
+                    print('download start :\n {}'.format(downlod_url))
+                    r = self.my_session.get(downlod_url, stream=True)
+                    with open(f_name, 'wb') as f:
+                        for chunk in r.iter_content(chunk_size=1024):
+                            if chunk:  # filter out keep-alive new chunks
+                                f.write(chunk)
+                    print('download complete :\n {}'.format(downlod_url))
+            except Exception as e:
+                print(str(e) + ' :: ' + let_code + ' :: ')
+
+    def download_sent_letters(self):
+        sent_url = '{}/Automation/{}/Instance/LetterSentRead'.format(self.base_url, self.emp_code)
+        for counter in range(1, 3):  # for get page 1 and page tow
+            data = self.get_letter_data(sent_url, counter, self.sent_folder)
+            self.get_letter_code_and_number(data, self.unit_code)
+
+    def reading_letters(self, letter_count, folder):
+        # get letters
+        if folder == self.sent_folder:
+            url_letter = '{}/Automation/{}/Instance/LetterSentRead'.format(self.base_url, self.emp_code)
+        else:
+            url_letter = '{}/Automation/{}/Instance/LetterInboxRead'.format(self.base_url, self.emp_code)
+        new_data = {'page': 1, 'pageSize': letter_count, 'folder': folder}
+        res = self.my_session.post(url_letter, data=new_data)
+        data = res.json()
+        # to get subject items (data["Data"][0]['Subject'])
+        counter = 1
+        lst_letter = []
+        for item in data['Data']:
+            subject = ('{} : {} '.format(counter, item['Subject']))
+            if item['IsNewLetter']:
+                lst_letter.append(subject + ' *** ')
+            else:
+                lst_letter.append(subject)
+            counter = counter + 1
+        return lst_letter
+
+    def download_inbox_letters(self):
+        inbox_url = '{}/Automation/{}/Instance/LetterInboxRead'.format(self.base_url, self.emp_code)
+        for counter in range(1, 3):  # for get page 1 and page tow
+            data = self.get_letter_data(inbox_url, counter, self.inbox_folder)
+            self.get_letter_code_and_number(data, self.unit_code)
+
+    def log_out(self):
+        url = '{}/{}/Account/DoLogOut'.format(self.base_url, self.emp_code)
+        self.my_session.post(url, headers=self.headers)
+        self.my_session.close()
+        print('logout success !!!')
+
+    # main method to login and download all data
+    def grab_letters(self):
+        self.login()
+        # download letters data
+        self.download_inbox_letters()
+        self.download_sent_letters()
+        print('all letters for downloads :{}  '.format(len(self.lst_letter)))
+        self.check_out_folder_exists(self.out_folder)
+        letters_count = len(self.lst_letter)
+        for counter, letter in enumerate(self.lst_letter, 1):
+            try:
+                print('start download letter : {} from : {} letters '.format(counter, letters_count))
+                let_code = letter['let_code']
+                let_num = letter['let_number']
+                has_attache = letter['HasAttachment']
+                lst_par_content = self.get_letter_txt(let_code, let_num)
+                final_name = self.save_letter_txt_to_file(let_num, lst_par_content)
+                out_final_path = os.path.join(self.out_folder, final_name)
+                # check for has a attach files
+                if has_attache:
+                    lst_attache_files = self.get_attache_files(let_code)
+                    self.download_attaches_files(let_code, lst_attache_files, out_final_path)
+            except Exception as e:
+                print(str(e) + ' :: ' + letter['let_code'] + ' :: ' + let_num)
+        # logout system
+        self.log_out()
